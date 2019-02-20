@@ -28,12 +28,3 @@ If there is no off chain transaction for less than a minute channel close itself
 There are some logs in the browser and terminal.
 
 !!! PS: if you cannot shutdown/close the state channel (throw an error), you should RESTART the node :)
-
-
-
-
-
-
-
-
-
