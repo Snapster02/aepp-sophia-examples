@@ -2,7 +2,7 @@
 STATE CHANNEL DEMO
 
 То run this demo you should update your docker image 
-```docker pull aeternity/aeternity```
+```docker pull aeternity/aeternity:latest```
 
 also you should install "Allow CORS: Access-Control-Allow-origin" browser extension and allow CORS for localhost.
 
