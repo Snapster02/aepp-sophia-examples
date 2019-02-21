@@ -36,138 +36,6 @@ let responderAccount;
 
 console.log('------------------ STATE CHANNEL DEMO -----------------------')
 
-
-async function createAccounts() {
-    initiatorAccount = await Universal({
-        networkId: NETWORK_ID,
-        url: API_URL,
-        internalUrl: INTERNAL_API_URL,
-        keypair: initiatorKeyPair
-    })
-    responderAccount = await Universal({
-        networkId: NETWORK_ID,
-        url: API_URL,
-        internalUrl: INTERNAL_API_URL,
-        keypair: responderKeyPair
-    })
-}
-
-// console.log( createAccounts(initiatorKeyPair).then((r,e) => {
-//     console.log(r);
-//     console.log(e);
-// }))
-
-// (async function(){
-//     await createAccounts();
-
-//     let aa = responderAccount.signTransaction('tx_+HcyAaEB6bv2BOYRtUYKOzmZ6Xcbb2BBfXPOfFUZ4S9+EnoSJcqCw1ChAVdfgf+wope3cl3GcdoLF2mx/Fy+RThce1rR/C6vHWCdgsNQgpxACgCCTiDAoAAQgI1ZAPpXMi6/bkGIMNO+WjPcZZ92aix8iJGet+YkC6RUXYo=');
-//     console.log(await aa);
-// })()
-
-async function initiatorSign(tag, tx) {
-    console.log('==> initiatorSign initiator_sign:', tx);
-    if (tag === 'initiator_sign') {
-        console.log('==> initiator_sign:');
-        //console.log();
-
-        return initiatorAccount.signTransaction(tx)
-    }
-
-    // Deserialize binary transaction so we can inspect it
-    // const txData = Crypto.deserialize(Crypto.decodeTx(tx), {
-    //     prettyTags: true
-    // })
-
-    //const txData = deserializeTx(tx);
-
-    // console.log();
-    // console.log('----> txData');
-    // console.log(txData);
-
-    // console.log('==> initiatorSign txData');
-    // console.log(txData);
-    // console.log();
-
-    if (tag === 'shutdown_sign_ack') {
-        if (true 
-            // txData.tag === 'CHANNEL_CLOSE_MUTUAL_TX' //&& TURN ME ON AFTER DESERIALIZE TX WORK AGAIN
-            // To keep things simple we manually check that
-            // balances are correct (as a result of previous transfer update)
-            // txData.initiatorAmount === 49990 &&
-            // txData.responderAmount === 50010
-        ) {
-            return initiatorAccount.signTransaction(tx)
-        }
-    }
-}
-
-function deserializeTx(tx) {
-    const txData = Crypto.deserialize(Crypto.decodeTx(tx), {
-        prettyTags: true
-    })
-
-    // const txData = TxBuilder.unpackTx(tx);
-
-    console.log(txData);
-    
-    return txData;
-}
-
-async function responderSign(tag, tx) {
-    console.log('==> responderSign', tag);
-    // console.log(tag);
-    // console.log();
-
-    if (tag === 'responder_sign') {
-        return responderAccount.signTransaction(tx)
-    }
-
-    // Deserialize binary transaction so we can inspect it
-    // >>> !!! TURN ME ON AFTER DESERIALIZE TX WORK AGAIN !!! <<<
-    const txData = deserializeTx(tx);
-    // console.log();
-    // console.log('----> txData');
-    // console.log(txData);
-
-    // When someone wants to transfer a tokens we will receive
-    // a sign request with `update_ack` tag
-    if (tag === 'update_ack') {
-
-        // console.log('==> txData');
-        // console.log(txData);
-        // console.log();
-
-        // Check if update contains only one offchain transaction
-        // and sender is initiator
-        if (
-            true 
-            // txData.tag === 'CHANNEL_OFFCHAIN_TX' &&
-            // txData.updates.length === 1 &&
-            // txData.updates[0].from === initiatorAddress
-        ) {
-            return responderAccount.signTransaction(tx)
-        }
-    }
-}
-
-async function connectAsInitiator(params) {
-    return Channel({
-        ...params,
-        url: STATE_CHANNEL_URL,
-        role: 'initiator',
-        sign: initiatorSign
-    })
-}
-
-async function connectAsResponder(params) {
-    return Channel({
-        ...params,
-        url: STATE_CHANNEL_URL,
-        role: 'responder',
-        sign: responderSign
-    })
-}
-
 const params = {
     // Public key of initiator
     // (in this case `initiatorAddress` defined earlier)
@@ -178,11 +46,11 @@ const params = {
     // Initial deposit in favour of the responder by the initiator
     pushAmount: 0,
     // Amount of tokens initiator will deposit into state channel
-    initiatorAmount: 50000,
+    initiatorAmount: 50000000000,
     // Amount of tokens responder will deposit into state channel
-    responderAmount: 50000,
+    responderAmount: 50000000000,
     // Minimum amount both peers need to maintain
-    channelReserve: 40000,
+    channelReserve: 30000000000,
     // Minimum block height to include the channel_create_tx
     ttl: 1000,
     // Amount of blocks for disputing a solo close
@@ -198,6 +66,8 @@ createAccounts().then(() => {
     // initiator connects to state channels endpoint
     connectAsInitiator(params).then(initiatorChannel => {
 
+        console.log('INITIATOR CHANNEL');
+
         initiatorChannel.on('statusChanged', (status) => {
             console.log(`[${status.toUpperCase()}]`);
         })
@@ -207,45 +77,36 @@ createAccounts().then(() => {
         })
 
         // off chain balances
-        getOffChainBalances1(initiatorChannel)
-        
+        //getOffChainBalances1(initiatorChannel)
+
+        initiatorChannel.sendMessage('hello world', responderAddress)
+
         if (false) {
-            initiatorChannel.balances(
-                [initiatorKeyPair.publicKey],
-            ).then(function (balances) {
-                console.log('-=-=>> off chain balance')
-                console.log(balances[initiatorKeyPair.publicKey])
-            }).catch(e => console.log(e))
+            initiatorChannel.update(
+                // Sender account
+                initiatorAddress,
+                // Recipient account
+                responderAddress,
+                // Amount
+                10,
+                // This function should verify offchain transaction
+                // and sign it with initiator's private key
+                async (tx) => initiatorAccount.signTransaction(tx)
+            ).then((result) => {
+                if (result.accepted) {
+                    console.log('==> Successfully transfered 10 tokens!', result)
+                } else {
+                    //console.log('=====> Transfer has been rejected')
+                }
+            }).catch(e => {
+                console.log('==> Error:', e);
+            })
         }
-
-
-        getOffChainBalances1(initiatorChannel)
-        //initiatorChannel.sendMessage('hello world', responderAddress)
-
-        initiatorChannel.update(
-            // Sender account
-            initiatorAddress,
-            // Recipient account
-            responderAddress,
-            // Amount
-            10,
-            // This function should verify offchain transaction
-            // and sign it with initiator's private key
-            async (tx) => initiatorAccount.signTransaction(tx)
-        ).then((result) => {
-            if (result.accepted) {
-                console.log('==> Successfully transfered 10 tokens!', result)
-            } else {
-                //console.log('=====> Transfer has been rejected')
-            }
-        }).catch(e => {
-            console.log('==> Error:', e);
-        })
 
         initiatorChannel.on('error', err => console.log(err))
 
+        
         // setTimeout(() => {
-        //     // this work
         //     // initiatorChannel.leave().then(({channelId, state}) => {
         //     //     console.log('=*=> leaving the channel');
         //     //     console.log(channelId);
@@ -260,6 +121,9 @@ createAccounts().then(() => {
 
     // responder connects to state channels endpoint
     connectAsResponder(params).then(responderChannel => {
+
+        console.log('RESPONDER CHANNEL');
+
         responderChannel.on('message', (msg) => {
             console.log('==>Received message from:', msg)
         })
@@ -275,7 +139,7 @@ createAccounts().then(() => {
             }).catch(e => {
                 console.log('==> Error:', e);
             })
-        }, 30000)
+        }, 15000)
 
         responderChannel.on('error', err => console.log(err))
     }).catch(err => {
@@ -302,4 +166,99 @@ createAccounts().then(() => {
                     console.log(balances[responderKeyPair.publicKey])
             }).catch(e => console.log(e))
     }
-})
+});
+
+async function createAccounts() {
+    initiatorAccount = await Universal({
+        networkId: NETWORK_ID,
+        url: API_URL,
+        internalUrl: INTERNAL_API_URL,
+        keypair: initiatorKeyPair
+    })
+    responderAccount = await Universal({
+        networkId: NETWORK_ID,
+        url: API_URL,
+        internalUrl: INTERNAL_API_URL,
+        keypair: responderKeyPair
+    })
+}
+
+async function initiatorSign(tag, tx) {
+    console.log('==> initiatorSign:', tx);
+    if (tag === 'initiator_sign') {
+        return initiatorAccount.signTransaction(tx)
+    }
+
+    const txData = deserializeTx(tx, true);
+    console.log('----> txData');
+    console.log(txData);
+
+    if (tag === 'shutdown_sign_ack') {
+        if (true || txData.tag === 'CHANNEL_CLOSE_MUTUAL_TX'
+            // To keep things simple we manually check that
+            // balances are correct (as a result of previous transfer update)
+            // txData.initiatorAmount === 49990 &&
+            // txData.responderAmount === 50010
+        ) {
+            return initiatorAccount.signTransaction(tx)
+        }
+    }
+}
+
+async function responderSign(tag, tx) {
+    console.log('==> responderSign:', tag);
+
+    if (tag === 'responder_sign') {
+        return responderAccount.signTransaction(tx)
+    }
+
+    // Deserialize binary transaction so we can inspect it
+    const txData = deserializeTx(tx);
+
+    // When someone wants to transfer a tokens we will receive
+    // a sign request with `update_ack` tag
+    if (tag === 'update_ack') {
+
+        // Check if update contains only one offchain transaction
+        // and sender is initiator
+        if (
+            true || txData.tag === 'CHANNEL_OFFCHAIN_TX'
+            // txData.updates.length === 1 &&
+            // txData.updates[0].from === initiatorAddress
+        ) {
+            return responderAccount.signTransaction(tx)
+        }
+    }
+}
+
+async function connectAsInitiator(params) {
+    return Channel({
+        ...params,
+        url: STATE_CHANNEL_URL,
+        role: 'initiator',
+        sign: initiatorSign
+    })
+}
+
+async function connectAsResponder(params) {
+    return Channel({
+        ...params,
+        url: STATE_CHANNEL_URL,
+        role: 'responder',
+        sign: responderSign
+    })
+}
+
+function deserializeTx(tx, showInfo) {
+    const txData = Crypto.deserialize(Crypto.decodeTx(tx), {
+        prettyTags: true
+    })
+
+    // const txData = TxBuilder.unpackTx(tx);
+
+    if (showInfo) {
+        console.log(txData);
+    }
+    
+    return txData;
+}
