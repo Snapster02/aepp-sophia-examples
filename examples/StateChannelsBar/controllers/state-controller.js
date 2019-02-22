@@ -114,18 +114,18 @@ async function connectAsResponder(params) {
 }
 
 async function responderSign(tag, tx) {
-    console.log('==> responder sign tag:', tag);
-
-    if (tag === 'responder_sign') {
-        return account.signTransaction(tx)
-    }
+    console.log('==> responder sign tag:', tx);
 
     // Deserialize binary transaction so we can inspect it
     const txData = deserializeTx(tx);
 
+    if (txData.tag === 'CHANNEL_CREATE_TX') {
+        return account.signTransaction(tx)
+    }
+
     // When someone wants to transfer a tokens we will receive
     // a sign request with `update_ack` tag
-    if (tag === 'update_ack') {
+    if (txData.tag === 'CHANNEL_OFFCHAIN_TX') {
 
         let isValid = isTxValid(txData);
         if (!isValid) {
@@ -141,7 +141,7 @@ async function responderSign(tag, tx) {
         }
     }
 
-    if (tag === 'shutdown_sign_ack') { // && txData.tag === 'CHANNEL_CLOSE_MUTUAL_TX'
+    if (txData.tag === 'CHANNEL_CLOSE_MUTUAL_TX') { // && txData.tag === 'CHANNEL_CLOSE_MUTUAL_TX'
         console.log('txData');
         console.log('...maybe this data is INCORRECT, shows some strange responder amount....');
         console.log(txData);
@@ -183,12 +183,14 @@ function sendConfirmMsg(txData) {
     data.channel.sendMessage(msg, from);
 }
 
-function deserializeTx(tx) {
-    const txData = Crypto.deserialize(Crypto.decodeTx(tx), {
-        prettyTags: true
-    });
+function deserializeTx(tx, shouldLogData) {
+    const txData = Crypto.deserialize(Crypto.decodeTx(tx), { prettyTags: true });
     //const txData = TxBuilder.unpackTx(tx);
 
+    if(shouldLogData) {
+        console.log('[DESERIALIZE]');
+        console.log(txData);
+    }
     return txData;
 }
 
