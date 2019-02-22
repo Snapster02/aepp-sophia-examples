@@ -37,6 +37,8 @@ const responderAddress = responderKeyPair.publicKey;
 let initiatorAccount;
 let responderAccount;
 
+let channel;
+
 console.log('------------------ STATE CHANNEL DEMO -----------------------')
 
 const params = {
@@ -67,7 +69,7 @@ const params = {
 createAccounts().then(() => {
 
     // initiator connects to state channels endpoint
-    connectAsInitiator(params).then(initiatorChannel => {
+    connectAsInitiator(params).then(async (initiatorChannel) => {
 
         console.log('INITIATOR CHANNEL');
 
@@ -97,6 +99,7 @@ createAccounts().then(() => {
                 async (tx) => initiatorAccount.signTransaction(tx)
             ).then((result) => {
                 console.log(`[INITIATOR] update result:`, result);
+
                 // if (result.accepted) {
                 //     console.log('==> Successfully transfered 10 tokens!', result)
                 // } else {
@@ -107,19 +110,27 @@ createAccounts().then(() => {
             })
         }
 
-        initiatorChannel.on('error', err => console.log(err))
+        initiatorChannel.on('error', err => console.log(err));
 
+        channel = initiatorChannel;
+
+        let res = await getStatusState(initiatorChannel);
         
+        console.log('==================================  [CHANNEL ID] ============================');
+        console.log(res.state.tx.channelId);
+
         // setTimeout(() => {
         //     // initiatorChannel.leave().then(({channelId, state}) => {
         //     //     console.log('=*=> leaving the channel');
         //     //     console.log(channelId);
         //     //     console.log(state);
         //     // })
-        // }, 15000)
+        //     getStatusState1(initiatorChannel);
+            
+        // }, 20000)
 
     }).catch(err => {
-        console.log('==> Initiator failed to connect')
+        console.log('==================================> ERROR Initiator failed to connect <==================================')
         console.log(err)
     })
 
@@ -129,7 +140,7 @@ createAccounts().then(() => {
         console.log('RESPONDER CHANNEL');
 
         responderChannel.on('message', (msg) => {
-            console.log('[RESPONDER] ==> Received message from:', msg)
+            console.log('[RESPONDER] ==> Received message from:', msg);
         });
 
         responderChannel.on('statusChanged', (status) => {
@@ -151,9 +162,9 @@ createAccounts().then(() => {
             }).catch(e => {
                 console.log('==> Error:', e);
             })
-        }, 25000);
+        }, 35000);
 
-        responderChannel.on('error', err => console.log(err))
+        responderChannel.on('error', err => console.log(err));
     }).catch(err => {
         console.log('==> Responder failed to connect')
         console.log(err)
@@ -196,7 +207,7 @@ async function createAccounts() {
 }
 
 async function initiatorSign(tag, tx) {
-    const txData = deserializeTx(tx, true);
+    const txData = deserializeTx(tx);
     console.log('[TAG] initiatorSign:', txData.tag);
 
     if (tag === 'initiator_sign' || txData.tag === 'CHANNEL_CREATE_TX') {
@@ -211,6 +222,7 @@ async function initiatorSign(tag, tx) {
 }
 
 async function responderSign(tag, tx) {
+    // Deserialize binary transaction so we can inspect it
     const txData = deserializeTx(tx);
     console.log('[TAG] responderSign:', txData.tag);
 
@@ -218,7 +230,7 @@ async function responderSign(tag, tx) {
         return responderAccount.signTransaction(tx)
     }
 
-    // Deserialize binary transaction so we can inspect it
+    
 
     // When someone wants to transfer a tokens we will receive
     // a sign request with `update_ack` tag
@@ -259,8 +271,53 @@ function deserializeTx(tx, showInfo) {
     // const txData = TxBuilder.unpackTx(tx);
 
     if (showInfo) {
+        let str = '-'.repeat(30);
+        let fullStr = `${str} deserializeTx ${str}`;
+        console.log(fullStr);
         console.log(txData);
+        console.log(`${str}${str}`);
     }
     
     return txData;
+}
+
+let getStatusState = function (channel) {
+    let promise = new Promise(function (resolve, reject) {
+        try {
+            let channelStatus;
+            let channelState;
+            let i = 0;
+            let MAX_ATTEMPTS = 240; // 1 minute = 240 times * 250 ms
+            let TRY_INTERVAL = 250; //ms
+    
+            let interval = setInterval(function () {
+                console.log(i++);
+
+                channelStatus = channel.status();
+                channelState = channel.state();
+
+                if (channelStatus && channelState) {
+                    clearInterval(interval);
+
+                    return resolve({
+                        status: channelStatus,
+                        state: deserializeTx(channelState)
+                    });
+                }
+                
+                if (i >= MAX_ATTEMPTS) {
+                    let err = new Error('Should not get status and state. Max attempts expired!');
+                    
+                    clearInterval(interval);
+                    return reject(err);
+                }
+            }, TRY_INTERVAL);
+        } catch (error) {
+            console.log('[ERROR TEMP FUNC]', error);
+            let err = new Error('Error: missing state or status.');
+            return reject(err);
+        }
+    });
+    
+    return promise;
 }

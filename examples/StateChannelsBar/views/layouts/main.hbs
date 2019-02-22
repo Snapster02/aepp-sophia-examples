@@ -98,6 +98,8 @@
         let getAndUpdateOffChainBalance;
         let getOffChainBalance;
 
+        let temp;
+
         (async function () {
 
             /* Open state channel*/
@@ -153,6 +155,15 @@
                         console.log('channel creation response: ', response);
                     }
                 });
+
+                temp = function () {
+                    console.log(channel);
+                    let channelStatus = channel.status();
+                    console.log('channelStatus', channelStatus);
+
+                    let channelState = channel.state();
+                    console.log('channel state', channelState);
+                }
             }
 
             async function connectAsInitiator(params, sign) {
@@ -185,6 +196,7 @@
                 });
 
                 channel.on('onChainTx', (tx) => {
+                    let result = deserializeTx(tx, true);
                     console.log('==> channel_create_tx:', tx);
                 })
 

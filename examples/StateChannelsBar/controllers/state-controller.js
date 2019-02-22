@@ -152,14 +152,14 @@ async function responderSign(tag, tx) {
 function isTxValid(txData) {
     let lastUpdateIndex = txData.updates.length - 1;
     if (lastUpdateIndex < 0) {
-        console.log('==> last index is smaller than 0')
+        console.log('==> last index is smaller than 0');
         return false;
     }
 
     let lastUpdate = txData.updates[lastUpdateIndex];
     let data = openChannels.get(lastUpdate.from);
     if (!data) {
-        console.log('==> no data <==')
+        console.log('==> no data <==');
         return false;
     }
 
