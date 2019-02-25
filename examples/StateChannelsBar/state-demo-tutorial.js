@@ -1,5 +1,7 @@
 // "@aeternity/aepp-sdk": "https://github.com/aeternity/aepp-sdk-js.git#2.1.1-0.1.0-next",
 
+const axios = require('axios');
+
 const {
     MemoryAccount,
     Channel,
@@ -38,6 +40,8 @@ let initiatorAccount;
 let responderAccount;
 
 let channel;
+let channelId;
+let poi;
 
 console.log('------------------ STATE CHANNEL DEMO -----------------------')
 
@@ -114,10 +118,12 @@ createAccounts().then(() => {
 
         channel = initiatorChannel;
 
-        let res = await getStatusState(initiatorChannel);
+        let res = await getChannelInfo(initiatorChannel);
         
         console.log('==================================  [CHANNEL ID] ============================');
-        console.log(res.state.tx.channelId);
+        console.log(res);
+        channelId = res.state.tx.channelId;
+        poi = res.poi;
 
         // setTimeout(() => {
         //     // initiatorChannel.leave().then(({channelId, state}) => {
@@ -235,6 +241,55 @@ async function responderSign(tag, tx) {
     // When someone wants to transfer a tokens we will receive
     // a sign request with `update_ack` tag
     if (tag === 'update_ack'|| txData.tag === 'CHANNEL_OFFCHAIN_TX') {
+
+        try {
+            // let res = await getStatusState(channel);
+            // let channelId = res.state.tx;
+            // console.log('getStatusState result');
+            // console.log(channelId);
+
+            // let test = await axios({
+            //     method: 'get',
+            //     url: 'http://localhost:3001/v2/info'
+            // });
+
+            // console.log('[TEST]');
+            // console.log('[TEST]', test);
+
+            let result = await axios({
+                method: 'post',
+                url: 'http://localhost:3001/v2/channels/close/solo',
+                data: {
+                    "from_id": responderKeyPair.publicKey,
+                    "payload": 'payload',
+                    "fee": 0,
+                    "poi": poi,
+                    "channel_id": channelId,
+                    "ttl": 0,
+                    "nonce": 0
+                }
+            });
+
+            console.log('[AXIOS RESULT]');
+            console.log(result);
+        } catch (error) {
+
+            if (error.response) {
+                console.log();
+                console.log('[AXIOS ERROR]');
+                console.log(`[AXIOS ERROR] Status: ${error.response.status}, Message: ${error.response.statusText}, Path: ${error.request.path}`);
+                // console.log(error.request.path);
+                console.log();
+            } else {
+                console.log();
+                console.log('[AXIOS ERROR]');
+                console.log(error);
+                console.log();
+            }
+            
+        }
+
+
         return responderAccount.signTransaction(tx)
     }
 
@@ -281,27 +336,36 @@ function deserializeTx(tx, showInfo) {
     return txData;
 }
 
-let getStatusState = function (channel) {
+let getChannelInfo = function (channel) {
     let promise = new Promise(function (resolve, reject) {
         try {
             let channelStatus;
             let channelState;
+            let channelPoi;
+
             let i = 0;
             let MAX_ATTEMPTS = 240; // 1 minute = 240 times * 250 ms
             let TRY_INTERVAL = 250; //ms
     
-            let interval = setInterval(function () {
-                console.log(i++);
+            let interval = setInterval(async function () {
+                //console.log(i++);
 
                 channelStatus = channel.status();
                 channelState = channel.state();
+                channelPoi = await channel.poi({
+                    accounts: [
+                        initiatorKeyPair.publicKey,
+                        responderKeyPair.publicKey
+                    ]
+                });
 
                 if (channelStatus && channelState) {
                     clearInterval(interval);
 
                     return resolve({
                         status: channelStatus,
-                        state: deserializeTx(channelState)
+                        state: deserializeTx(channelState),
+                        poi: channelPoi
                     });
                 }
                 
