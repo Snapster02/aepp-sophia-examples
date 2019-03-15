@@ -53,17 +53,7 @@ describe('Example Contract', () => {
 			console.log(deployedInstance);
 			console.log();
 		}
-	})
-
-	/*  EXAMPLE
-
-	it('Caller should be same as owner.', async () => {
-		let result = await deployedInstance.get_caller();
-		console.log(result);
-		assert.equal(result, ownerKeyPair.publicKey);
 	});
-
-	*/
 
 	it('Caller should be same as owner.', async () => {
 		let result = await deployedInstance.get_caller();
@@ -71,7 +61,7 @@ describe('Example Contract', () => {
 		assert.equal(result, ownerKeyPair.publicKey);
 	});
 
-	// PS: for now there is one 'bug' get all todos return array with 1 todo that is empty /without name/
+	// PS: for now, there is one 'bug' get all todos return array with 1 todo that is empty /without name/
 	it('Should get "todos", there are no todos', async () => {
 		let result = await deployedInstance.get_todos();
 		
@@ -99,15 +89,21 @@ describe('Example Contract', () => {
 
 	it('Should get a "todo".', async () => {
 		await deployedInstance.add_todo(firstTodoName);
-		let result = await deployedInstance.get_todo_by_index(ownerKeyPair.publicKey, 1);
+		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
 		
 		assert.equal(result, getTodoTemplate(firstTodoName, false));
+	});
+
+	it('Should get an empty string when there is no "todo".', async () => {
+		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 2);
+		
+		assert.equal(result, '');
 	});
 
 	it('Should change name of a "todo".', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.edit_todo_name(1, changedTodoName);
-		let result = await deployedInstance.get_todo_by_index(ownerKeyPair.publicKey, 1);
+		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
 		
 		assert.equal(result, getTodoTemplate(changedTodoName, false));
 	});
@@ -115,8 +111,30 @@ describe('Example Contract', () => {
 	it('Should change state/is completed/ of a "todo".', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.edit_todo_state(1, true);
-		let result = await deployedInstance.get_todo_by_index(ownerKeyPair.publicKey, 1);
+		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
 		
 		assert.equal(result, getTodoTemplate(firstTodoName, true));
+	});
+
+	it('Should delete "todo" by id.', async () => {
+		await deployedInstance.add_todo(firstTodoName);
+		let id = await deployedInstance.add_todo(secondTodoName);
+		await deployedInstance.add_todo(changedTodoName);
+
+		let count = await deployedInstance.get_todo_count(ownerKeyPair.publicKey);
+		assert.equal(count, 3, "Invalid 'todo' count.");
+
+		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, id);
+		assert.equal(result, getTodoTemplate(secondTodoName, false), "Returned 'Todo' is not needed one!");
+		
+		let isDeleted = await deployedInstance.delete_todo(id);
+
+		result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, id);
+
+		count = await deployedInstance.get_todo_count(ownerKeyPair.publicKey);
+		
+		assert.equal(isDeleted, 1, "Invalid returned status from deleting a 'todo'.");
+		assert.equal(result, '', "Result is not empty string");
+		assert.equal(count, 2, "Invalid 'todo' count.");
 	});
 })
