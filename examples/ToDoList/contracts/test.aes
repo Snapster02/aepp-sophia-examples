@@ -1,0 +1,25 @@
+
+contract Test =
+
+  record state = {
+    addr_names: map(address, string)}
+
+
+  public stateful function init() =
+    { addr_names = {}}
+
+  public function get_caller() : address =
+    Call.caller
+
+  public stateful function add(user: address, str: string) =
+
+    put(state{addr_names[user] = str})
+
+  public function get(user: address) : string =
+    prv_get(user)  
+
+  private function prv_get(user: address) : string =
+    switch(Map.lookup(user, state.addr_names))
+      None => ""
+      Some(x) => x
+

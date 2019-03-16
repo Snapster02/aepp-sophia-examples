@@ -21,6 +21,7 @@ const path = require('path');
 // otherwise checkout this branch 'deployed-instance-sc-functionality-upgrade-rgx' and linked it/or specified it path
 // const Deployer = require('forgae').Deployer;
 const Deployer = require('./../../../../aepp-forgae-js/cli-commands/forgae-deploy/forgae-deployer');
+const utils = require('./../../../../aepp-forgae-js/cli-commands/utils');
 
 const contractPath = './../contracts/todo.aes';
 
@@ -57,21 +58,26 @@ describe('Example Contract', () => {
 
 	it('Caller should be same as owner.', async () => {
 		let result = await deployedInstance.get_caller();
-		
+		console.log('caller:', result);
 		assert.equal(result, ownerKeyPair.publicKey);
 	});
 
 	// PS: for now, there is one 'bug' get all todos return array with 1 todo that is empty /without name/
-	it('Should get "todos", there are no todos', async () => {
+	xit('Should get "todos", there are no todos', async () => {
 		let result = await deployedInstance.get_todos();
 		
 		assert.equal(result.length - 1, 0);
 	});
 
-	it('Should get "todos"', async () => {
+	xit('Should get "todos"', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.add_todo(secondTodoName);
 		let result = await deployedInstance.get_todos();
+
+		console.log(result);
+		let temp = result[0].value
+		console.log(temp[1].value);
+		console.log();
 		
 		assert.equal(result.length - 1, 2);
 	});
@@ -87,36 +93,50 @@ describe('Example Contract', () => {
 		assert.equal(result, 1);
 	});
 
-	it('Should get a "todo".', async () => {
+	xit('Should get a "todo".', async () => {
 		await deployedInstance.add_todo(firstTodoName);
-		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
+		let todoId = await deployedInstance.add_todo(secondTodoName); 
+		// let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, todoId);
+		// assert.equal(result, getTodoTemplate(firstTodoName, false));
 		
-		assert.equal(result, getTodoTemplate(firstTodoName, false));
+		// console.log('key as hex:', utils.keyToHex(ownerKeyPair.publicKey));
+		const result = await deployedInstance.call('get_todo_by_id', {
+			args: `(39519965516565108473327470053407124751867067078530473195651550649472681599133, ${todoId})`,
+			options: {
+				ttl: 123
+			},
+			abi: 'sophia'
+		})
+
+		console.log(result);
+
+		console.log(await result.decode("string"));
+		
 	});
 
-	it('Should get an empty string when there is no "todo".', async () => {
+	xit('Should get an empty string when there is no "todo".', async () => {
 		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 2);
 		
 		assert.equal(result, '');
 	});
 
-	it('Should change name of a "todo".', async () => {
-		await deployedInstance.add_todo(firstTodoName);
-		await deployedInstance.edit_todo_name(1, changedTodoName);
+	xit('Should change name of a "todo".', async () => {
+		let id = await deployedInstance.add_todo(firstTodoName);
+		await deployedInstance.edit_todo_name(id, changedTodoName);
 		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
 		
 		assert.equal(result, getTodoTemplate(changedTodoName, false));
 	});
 	
-	it('Should change state/is completed/ of a "todo".', async () => {
-		await deployedInstance.add_todo(firstTodoName);
-		await deployedInstance.edit_todo_state(1, true);
+	xit('Should change state/is completed/ of a "todo".', async () => {
+		let id = await deployedInstance.add_todo(firstTodoName);
+		await deployedInstance.edit_todo_state(id, true);
 		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
 		
 		assert.equal(result, getTodoTemplate(firstTodoName, true));
 	});
 
-	it('Should delete "todo" by id.', async () => {
+	xit('Should delete "todo" by id.', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		let id = await deployedInstance.add_todo(secondTodoName);
 		await deployedInstance.add_todo(changedTodoName);

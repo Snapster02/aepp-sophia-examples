@@ -87,12 +87,12 @@ contract ToDoManager =
 
     true
 
-  public function get_todo_by_id(user: address, id: int) : string =
-    let todos: map(int,todo) = get_todos_by_user(user)
+  public function get_todo_by_id(id: int) : string =
+    let todos: map(int,todo) = get_todos_by_user(Call.caller)
     
     let current_todo = get_todo(id, todos)
     if (current_todo.name == "")
-      ""
+      "empty"
     else
       let name = String.concat("Name: ", current_todo.name)
       let name_with_delimeter = String.concat(name, " | Is completed: ")
@@ -100,21 +100,11 @@ contract ToDoManager =
 
       todo_as_string
 
-  public function get_todos() : list(string) =
-    // ["Name: first todo | Is completed: false", "Name: second todo | Is completed: true"]
-    let numberOfTodos = get_todo_count(Call.caller)
-    let collection = []
-    let allTodos = collectData(Call.caller, collection, 0, numberOfTodos)
-    allTodos
-
-  private function collectData(user: address, allTodos: list(string), startId: int, endId: int) : list(string) =
-      if(startId =< endId)
-        let todoData = get_todo_by_id(user, startId)
-        let tempCollection = todoData :: allTodos
-        collectData(user, tempCollection, startId + 1, endId)
-      else
-        allTodos
-
+  public function get_todos() : list((int, todo)) = 
+    
+    let user_todos = get_todos_by_user(Call.caller)
+    let todos = Map.to_list(user_todos)
+    todos
 
   private function convert_bool_to_string(expression: bool) : string =
     switch(expression)
@@ -140,11 +130,3 @@ contract ToDoManager =
     switch(Map.lookup(id, todos))
       None => new_todo
       Some(x) => x
-
-  // this code is needed for a test
-  // public function commented_function() : list(string) =
-  //   // ["Name: first todo | Is completed: false", "Name: second todo | Is completed: true"]
-  //   let numberOfTodos = get_todo_count(Call.caller)
-  //   let collection = []
-  //   let allTodos = collectData(Call.caller, collection, 0, numberOfTodos)
-  //   allTodos
