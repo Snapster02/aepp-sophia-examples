@@ -21,21 +21,47 @@ const path = require('path');
 // otherwise checkout this branch 'deployed-instance-sc-functionality-upgrade-rgx' and linked it/or specified it path
 // const Deployer = require('forgae').Deployer;
 const Deployer = require('./../../../../aepp-forgae-js/cli-commands/forgae-deploy/forgae-deployer');
-const utils = require('./../../../../aepp-forgae-js/cli-commands/utils');
+// const utils = require('./../../../../aepp-forgae-js/cli-commands/utils');
 
 const contractPath = './../contracts/todo.aes';
 
 const ownerKeyPair = wallets[0];
-
-function getTodoTemplate(name, isCompleted) {
-	return `Name: ${name} | Is completed: ${isCompleted}`;
-}
 
 const firstTodoName = "First Todo";
 const secondTodoName = "Second Todo";
 const changedTodoName = "Changed Todo Name";
 
 let shouldShowInfo = true;
+
+function convertToTODO(data) {
+	
+	let isNan = isNaN(data[1].value);
+	if (!Array.isArray(data) || data.length !== 2 || isNan  ) { // || (!data[0].value || !data[1].value)
+		throw new Error('Cannot convert to "todo". Invalid data!');
+	}
+
+	return {
+		name: data[0].value,
+		isCompleted: data[1].value === 1 ? true : false
+	}
+}
+
+function convertSophiaListToTodos(data) {
+	let tempCollection = [];
+
+	for(let idTodoData of data) {
+		
+		let idTodoInfo = idTodoData.value;
+
+		let id = idTodoInfo[0].value;
+		let todo = convertToTODO(idTodoInfo[1].value);
+		todo.id = id;
+
+		tempCollection.push(todo);
+	}
+
+	return tempCollection;
+}
 
 describe('Example Contract', () => {
 
@@ -58,28 +84,33 @@ describe('Example Contract', () => {
 
 	it('Caller should be same as owner.', async () => {
 		let result = await deployedInstance.get_caller();
-		console.log('caller:', result);
 		assert.equal(result, ownerKeyPair.publicKey);
 	});
 
-	// PS: for now, there is one 'bug' get all todos return array with 1 todo that is empty /without name/
-	xit('Should get "todos", there are no todos', async () => {
+	it('Should get "todos", there are no todos', async () => {
 		let result = await deployedInstance.get_todos();
 		
-		assert.equal(result.length - 1, 0);
+		assert.equal(result.length, 0);
 	});
 
-	xit('Should get "todos"', async () => {
-		await deployedInstance.add_todo(firstTodoName);
+	it('Should get "todos"', async () => {
+		let id = await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.add_todo(secondTodoName);
-		let result = await deployedInstance.get_todos();
 
-		console.log(result);
-		let temp = result[0].value
-		console.log(temp[1].value);
-		console.log();
+		await deployedInstance.edit_todo_state(id, true);
+
+		let result = await deployedInstance.get_todos();
+		let todos = convertSophiaListToTodos(result);
 		
-		assert.equal(result.length - 1, 2);
+		assert.equal(todos.length, 2);
+		let firstTodo = todos[0];
+		let secondTodo = todos[1];
+
+		assert.equal(firstTodo.name, firstTodoName);
+		assert.equal(firstTodo.isCompleted, true);
+
+		assert.equal(secondTodo.name, secondTodoName);
+		assert.equal(secondTodo.isCompleted, false);
 	});
 
 	it('Should add "todo" successfully.', async () => {
@@ -93,50 +124,46 @@ describe('Example Contract', () => {
 		assert.equal(result, 1);
 	});
 
-	xit('Should get a "todo".', async () => {
+	it('Should get a "todo".', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		let todoId = await deployedInstance.add_todo(secondTodoName); 
-		// let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, todoId);
-		// assert.equal(result, getTodoTemplate(firstTodoName, false));
 		
-		// console.log('key as hex:', utils.keyToHex(ownerKeyPair.publicKey));
-		const result = await deployedInstance.call('get_todo_by_id', {
-			args: `(39519965516565108473327470053407124751867067078530473195651550649472681599133, ${todoId})`,
-			options: {
-				ttl: 123
-			},
-			abi: 'sophia'
-		})
+		let result = await deployedInstance.get_todo_by_id(todoId);
+		let asTodo = convertToTODO(result);
 
-		console.log(result);
-
-		console.log(await result.decode("string"));
-		
+		assert.equal(asTodo.name, secondTodoName, "Name is not equal!");
+		assert.equal(asTodo.isCompleted, false, "'Is completed' do not match!");
 	});
 
-	xit('Should get an empty string when there is no "todo".', async () => {
-		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 2);
-		
-		assert.equal(result, '');
+	it('Should return a "todo" with empty name when there is no "todo".', async () => {
+		let result = await deployedInstance.get_todo_by_id(2);
+		let todo = convertToTODO(result);
+
+		assert.equal(todo.name, '');
+		assert.equal(todo.isCompleted, false);
 	});
 
-	xit('Should change name of a "todo".', async () => {
+	it('Should change name of a "todo".', async () => {
 		let id = await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.edit_todo_name(id, changedTodoName);
-		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
+		let result = await deployedInstance.get_todo_by_id(id);
+		let todo = convertToTODO(result);
 		
-		assert.equal(result, getTodoTemplate(changedTodoName, false));
+		assert.equal(todo.name, changedTodoName);
+		assert.equal(todo.isCompleted, false);
 	});
 	
-	xit('Should change state/is completed/ of a "todo".', async () => {
+	it('Should change state(is completed) of a "todo".', async () => {
 		let id = await deployedInstance.add_todo(firstTodoName);
 		await deployedInstance.edit_todo_state(id, true);
-		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, 1);
+		let result = await deployedInstance.get_todo_by_id(id);
+		let todo = convertToTODO(result);
 		
-		assert.equal(result, getTodoTemplate(firstTodoName, true));
+		assert.equal(todo.name, firstTodoName);
+		assert.equal(todo.isCompleted, true);
 	});
 
-	xit('Should delete "todo" by id.', async () => {
+	it('Should delete "todo" by id.', async () => {
 		await deployedInstance.add_todo(firstTodoName);
 		let id = await deployedInstance.add_todo(secondTodoName);
 		await deployedInstance.add_todo(changedTodoName);
@@ -144,17 +171,21 @@ describe('Example Contract', () => {
 		let count = await deployedInstance.get_todo_count(ownerKeyPair.publicKey);
 		assert.equal(count, 3, "Invalid 'todo' count.");
 
-		let result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, id);
-		assert.equal(result, getTodoTemplate(secondTodoName, false), "Returned 'Todo' is not needed one!");
+		let result = await deployedInstance.get_todo_by_id(id);
+		let todo = convertToTODO(result);
+		assert.equal(todo.name, secondTodoName, "Current todo 'name' do not match.");
+		assert.equal(todo.isCompleted, false, "Current todo isCompleted do not match.");
 		
 		let isDeleted = await deployedInstance.delete_todo(id);
 
-		result = await deployedInstance.get_todo_by_id(ownerKeyPair.publicKey, id);
+		result = await deployedInstance.get_todo_by_id(id);
+		todo = convertToTODO(result);
 
 		count = await deployedInstance.get_todo_count(ownerKeyPair.publicKey);
 		
 		assert.equal(isDeleted, 1, "Invalid returned status from deleting a 'todo'.");
-		assert.equal(result, '', "Result is not empty string");
+		assert.equal(todo.name, '');
+		assert.equal(todo.isCompleted, false);
 		assert.equal(count, 2, "Invalid 'todo' count.");
 	});
 })

@@ -87,18 +87,11 @@ contract ToDoManager =
 
     true
 
-  public function get_todo_by_id(id: int) : string =
+  public function get_todo_by_id(id: int) : todo =
     let todos: map(int,todo) = get_todos_by_user(Call.caller)
     
     let current_todo = get_todo(id, todos)
-    if (current_todo.name == "")
-      "empty"
-    else
-      let name = String.concat("Name: ", current_todo.name)
-      let name_with_delimeter = String.concat(name, " | Is completed: ")
-      let todo_as_string = String.concat(name_with_delimeter, convert_bool_to_string(current_todo.is_completed))
-
-      todo_as_string
+    current_todo
 
   public function get_todos() : list((int, todo)) = 
     
