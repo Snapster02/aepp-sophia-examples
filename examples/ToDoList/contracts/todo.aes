@@ -64,11 +64,11 @@ contract ToDoManager =
 
   public function get_todo_by_id(id: int) : todo =
     let todos: map(int,todo) = Map.lookup_default(Call.caller, state.map_user_todos, {})
-    let empty_todo : todo = {
-      name = "",
-      is_completed = false }
+    let result = switch(Map.lookup(id, todos))
+                    // None => {}
+                    Some(x) => x
 
-    Map.lookup_default(id, todos, empty_todo)
+    result
 
   public function get_todos() : list((int, todo)) = 
     
@@ -83,8 +83,14 @@ contract ToDoManager =
 
   private function get_todo_by_id'(user: address, id: int) : todo =
     let todos: map(int,todo) = Map.lookup_default(user, state.map_user_todos, {})
-    let empty_todo : todo = {
-      name = "",
-      is_completed = false }
+    
+    // let empty_todo : todo = {
+    //   name = "",
+    //   is_completed = false }
 
-    Map.lookup_default(id, todos, empty_todo)
+    //Map.lookup_default(id, todos, empty_todo)
+    let result = switch(Map.lookup(id, todos))
+                    // None => {}
+                    Some(x) => x
+
+    result
