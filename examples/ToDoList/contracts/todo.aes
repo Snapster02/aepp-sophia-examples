@@ -54,7 +54,7 @@ contract ToDoManager =
     put(state{map_user_todos[Call.caller][todo_id] = edited_todo})
 
   public stateful function delete_todo(todo_id: int) =
-    let todos: map(int,todo) = get_todos_by_user(Call.caller)
+    let todos: map(int,todo) = Map.lookup_default(Call.caller, state.map_user_todos, {}) // get_todos_by_user(Call.caller)
     let updated_todos = Map.delete(todo_id, todos)
 
     put(state{map_user_todos[Call.caller] = updated_todos})
@@ -63,13 +63,16 @@ contract ToDoManager =
     put(state{map_user_todo_count[Call.caller] = count})
 
   public function get_todo_by_id(id: int) : todo =
-    let todos: map(int,todo) = get_todos_by_user(Call.caller)
-    
-    Map.lookup_default(id, todos, {})
+    let todos: map(int,todo) = Map.lookup_default(Call.caller, state.map_user_todos, {})
+    let empty_todo : todo = {
+      name = "",
+      is_completed = false }
+
+    Map.lookup_default(id, todos, empty_todo)
 
   public function get_todos() : list((int, todo)) = 
     
-    let user_todos = get_todos_by_user(Call.caller)
+    let user_todos = Map.lookup_default(Call.caller, state.map_user_todos, {})
     let todos = Map.to_list(user_todos)
     todos
 
@@ -80,4 +83,8 @@ contract ToDoManager =
 
   private function get_todo_by_id'(user: address, id: int) : todo =
     let todos: map(int,todo) = Map.lookup_default(user, state.map_user_todos, {})
-    Map.lookup_default(id, todos, {})
+    let empty_todo : todo = {
+      name = "",
+      is_completed = false }
+
+    Map.lookup_default(id, todos, empty_todo)
